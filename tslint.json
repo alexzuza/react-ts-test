@@ -1,5 +1,8 @@
 {
     "extends": ["tslint-react"],
+    "rulesDirectory": [
+        "./tools/tslint-rules/"
+    ],
     "rules": {
         "align": [
             true,
@@ -94,6 +97,10 @@
             "check-separator",
             "check-type",
             "check-typecast"
-        ]
+        ],
+
+        // Custom rules
+        "ts-loader": true,
+        "my-react-component": true
     }
 }
