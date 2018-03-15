@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
 import * as Lint from 'tslint';
 
-export class Rule extends Lint.Rules.AbstractRule {
+export class Rule extends Lint.Rules.TypedRule {
   /* tslint:disable:object-literal-sort-keys */
   static metadata: Lint.IRuleMetadata = {
     ruleName: 'my-react-component',
@@ -15,50 +15,48 @@ export class Rule extends Lint.Rules.AbstractRule {
   };
   /* tslint:enable:object-literal-sort-keys */
 
-  static FAILURE_STRING = (className: string) => `React component ${className} must be PascalCased and prefixed by Component`;
+  static FAILURE_STRING = (className: string) =>
+    `React component ${className} must be PascalCased and prefixed by Component`;
 
   static validate(name: string): boolean {
     return isUpperCase(name[0]) && !name.includes('_') && name.endsWith('Component');
   }
 
-  apply(sourceFile: ts.SourceFile): Lint.RuleFailure[] {
-    return this.applyWithFunction(sourceFile, walk);
+  applyWithProgram(sourceFile: ts.SourceFile, program: ts.Program): Lint.RuleFailure[] {
+    return this.applyWithFunction(sourceFile, walk, undefined, program.getTypeChecker());
   }
 }
 
-function walk(ctx: Lint.WalkContext<void>) {
+function walk(ctx: Lint.WalkContext<void>, tc: ts.TypeChecker) {
   return ts.forEachChild(ctx.sourceFile, function cb(node: ts.Node): void {
-    if (isClassLikeDeclaration(node) && node.name !== undefined && isReactComponent(node)) {
-      if (!Rule.validate(node.name!.text)) {
-        ctx.addFailureAtNode(node.name!, Rule.FAILURE_STRING(node.name!.text));
-      }
+    if (
+        isClassLikeDeclaration(node) && node.name !== undefined &&
+        containsType(tc.getTypeAtLocation(node), isReactComponentType) &&
+        !Rule.validate(node.name!.text)) {
+      ctx.addFailureAtNode(node.name!, Rule.FAILURE_STRING(node.name!.text));
     }
+
     return ts.forEachChild(node, cb);
   });
 }
+/* tslint:disable:no-any */
+function containsType(type: ts.Type, predicate: (name: any) => boolean): boolean {
+  if (type.symbol !== undefined && predicate(type.symbol)) {
+    return true;
+  }
+
+  const bases = type.getBaseTypes();
+  return bases && bases.some((t) => containsType(t, predicate));
+}
+
+function isReactComponentType(symbol: any) {
+  return symbol.name === 'Component' && symbol.parent && symbol.parent.name === 'React';
+}
+/* tslint:enable:no-any */
 
 function isClassLikeDeclaration(node: ts.Node): node is ts.ClassLikeDeclaration {
   return node.kind === ts.SyntaxKind.ClassDeclaration ||
     node.kind === ts.SyntaxKind.ClassExpression;
-}
-
-function isReactComponent(node: ts.Node): boolean {
-  let result = false;
-  const classDeclaration = <ts.ClassDeclaration> node;
-  if (classDeclaration.heritageClauses) {
-    classDeclaration.heritageClauses.forEach((hc) => {
-      if (hc.token === ts.SyntaxKind.ExtendsKeyword && hc.types) {
-
-        hc.types.forEach(type => {
-          if (type.getText() === 'React.Component') {
-            result = true;
-          }
-        });
-      }
-    });
-  }
-
-  return result;
 }
 
 function isUpperCase(str: string): boolean {
