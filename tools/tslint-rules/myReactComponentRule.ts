@@ -40,7 +40,7 @@ function walk(ctx: Lint.WalkContext<void>, tc: ts.TypeChecker) {
   });
 }
 /* tslint:disable:no-any */
-function containsType(type: ts.Type, predicate: (name: any) => boolean): boolean {
+function containsType(type: ts.Type, predicate: (symbol: any) => boolean): boolean {
   if (type.symbol !== undefined && predicate(type.symbol)) {
     return true;
   }
